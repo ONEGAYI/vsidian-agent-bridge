@@ -78,10 +78,27 @@ export const CODEX_PASTE_RULES: readonly AddonPasteRuleDeclaration[] = [
  * 停用/故障/代次结束由平台撤回相应规则（对齐上游集成夹具形态）。
  */
 export function registerCodexPasteRules(paste: AddonPasteRulesContextApi): AddonPasteRulesRegisterResult {
-  const result = paste.registerRules(CODEX_PASTE_RULES)
+  return registerPasteRules(paste, 'Codex links', CODEX_PASTE_RULES)
+}
+
+export function registerKatexPasteRules(paste: AddonPasteRulesContextApi): AddonPasteRulesRegisterResult {
+  // inlineMath 是后续宿主新增的模板槽选项。与已发行 Codex 链接规则分批注册，
+  // 旧宿主拒绝公式规则时不会撤回已注册的链接规则。
+  return registerPasteRules(paste, 'KaTeX inline math', [{
+    id: 'katex-inline-math',
+    match: {
+      tag: 'SPAN',
+      condition: { kind: 'attribute-regex', name: 'class', regex: { pattern: '(?:^|\\s)katex(?:\\s|$)' } },
+    },
+    output: { kind: 'template', template: '{{tex}}', slots: { tex: { source: { kind: 'text' }, inlineMath: true } } },
+  }])
+}
+
+function registerPasteRules(paste: AddonPasteRulesContextApi, feature: string, rules: readonly unknown[]): AddonPasteRulesRegisterResult {
+  const result = paste.registerRules(rules)
   if (!result.ok) {
     console.warn(
-      `vsidian-codex-bridge: paste rules rejected (${result.reason}${result.detail === undefined ? '' : `: ${result.detail}`}) — falling back to built-in conversion`,
+      `Vsidian Agent Bridge: ${feature} paste rules rejected (${result.reason}${result.detail === undefined ? '' : `: ${result.detail}`}) — falling back to built-in conversion`,
     )
   }
   return result

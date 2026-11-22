@@ -8,7 +8,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ADDON_ID, CODEX_RENDERER_ID, CODEX_THEME_DECLARATION } from '../src/codex/meta'
 import { MERMAID_BUNDLE_PATH } from '../src/codex/loader'
-import { codexEnable } from '../src/codex/host-enable'
+import { registerCodexEditor, registerCodexTheme } from '../src/codex/host-enable'
 import { codexPageFactory } from '../src/page-editor'
 
 describe('Codex 主题元数据（单一事实源）', () => {
@@ -49,7 +49,8 @@ describe('宿主 enable：themes.register 登记', () => {
 
   it('登记编辑器页入口 + 资源基址 + Codex 主题元数据（整批一条）', () => {
     const ctx = mockEnableCtx()
-    codexEnable(ctx as never)
+    registerCodexEditor(ctx as never)
+    registerCodexTheme(ctx as never)
     // resources 是 mermaid 独立产物的装载前提：平台只在登记了资源子目录时
     // 才提供 resourceUri（首个子目录作基址）——缺登记则 loader 恒 null，
     // 渲染恒降级「Mermaid 运行时不可用」（issue #7）。基址收在 dist/
@@ -62,7 +63,7 @@ describe('宿主 enable：themes.register 登记', () => {
 
   it('resources 基址与 loader 请求路径配套：基址负责目录、常量只写文件名', () => {
     const ctx = mockEnableCtx()
-    codexEnable(ctx as never)
+    registerCodexEditor(ctx as never)
     const input = ctx.pages.registerEditor.mock.calls[0]![0] as { resources?: readonly string[] }
     expect(input.resources?.[0]).toBe('dist')
     // 两个事实源不脱节：host-enable 的基址登记 vs loader 的 MERMAID_BUNDLE_PATH——
@@ -79,7 +80,7 @@ describe('宿主 enable：themes.register 登记', () => {
         dispose: () => {},
       }),
     )
-    expect(() => codexEnable(ctx as never)).not.toThrow()
+    expect(() => registerCodexTheme(ctx as never)).not.toThrow()
   })
 })
 
