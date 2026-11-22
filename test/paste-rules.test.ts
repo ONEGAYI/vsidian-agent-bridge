@@ -319,13 +319,6 @@ describe('Codex 粘贴还原规则：注册行为', () => {
 // ---- 7. 宿主入口接线 ----
 
 describe('Codex 粘贴还原规则：宿主入口接线', () => {
-  it('extension.ts 的 enable 生命周期内调用注册（源码契约）', () => {
-    const text = readFileSync(path.join(repoRoot, 'src/extension.ts'), 'utf8')
-    // enable（运行装配）阶段注册——对齐规格「规则在扩展宿主运行功能
-    // 阶段登记」；setup（常驻设置）不注册（停用后不留有效规则）
-    expect(text).toContain('registerCodexPasteRules(enableCtx.paste)')
-  })
-
   it('页面入口不因粘贴规则启用——声明式规则无需页面代码', () => {
     // 规则在宿主登记、广播到页面、在既有 HTML→Markdown 遍历中消费，
     // 粘贴还原无需页面脚本逻辑；#3 起工厂装配主题渲染提供者

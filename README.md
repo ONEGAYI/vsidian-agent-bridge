@@ -1,6 +1,10 @@
-# vsidian-codex-bridge
+# Vsidian Agent Bridge
 
-把 Codex（OpenAI 的编程助手）的两样东西带进 [Vsidian](https://github.com/ONEGAYI/vsidian)（VSCode 里类 Obsidian 的 Markdown 编辑器）：从 Codex 复制的链接粘贴进笔记仍是链接，Mermaid 图可以渲染成 Codex 的样式。粘贴还原装好即生效，主题在设置里手动选择；停用或卸载组件，Vsidian 一切照旧。
+把 AI 助手的富文本带进 [Vsidian](https://github.com/ONEGAYI/vsidian)（VSCode 里的类 Obsidian Markdown 编辑器）：从 Codex 复制的链接仍是链接，从反重力（Antigravity）复制的 KaTeX 行内公式仍是公式。组件也提供 Codex Mermaid 主题。
+
+## 在 Vsidian 里独立开关功能
+
+打开「Vsidian 设置 → 第三方组件 → Vsidian Agent Bridge」。**Codex 链接还原**、**KaTeX 行内公式还原**和 **Codex Mermaid 主题**默认开启，可分别修改用户默认或覆盖当前工作区。主题开关只控制候选是否可用，不改变你的首选主题。
 
 ## 粘贴 Codex 内容，链接还是链接
 
@@ -12,6 +16,12 @@
 | 装上组件 | `[修复清单](notes/fixes.md)`——标准链接，渲染后可点击 |
 
 还原发生在粘贴这一步，已经写进笔记的内容不会被二次改动。
+
+## 粘贴反重力的行内公式
+
+在 Vsidian 的 Live 编辑模式下正常粘贴。若剪贴板 HTML 包含 KaTeX 的原始 TeX 注解，像 `(SD, COMPS, OBS, P, N)` 这样的公式会还原为 `$(SD, COMPS, OBS, P, N)$`，不会贴入屏幕显示的逐字副本。纯文本粘贴和块级公式仍走宿主原有路径。
+
+公式还原需要支持粘贴公式槽 `inlineMath` 的 Vsidian 构建；旧宿主仍可用 Codex 链接还原、主题与设置页。
 
 ## Mermaid 图的 Codex 主题
 
@@ -28,20 +38,22 @@ Vsidian 的「设置 → 外观 → 主题」下拉里会多出一个 **Codex** 
 
 两个渠道任选其一：
 
-1. **VSCode Marketplace**：扩展面板搜索 `Vsidian Codex Bridge` 安装，或命令行执行：
+1. **VSCode Marketplace**：按扩展 ID 搜索，或命令行执行：
    ```bash
    code --install-extension ONEGAYI.vsidian-codex-bridge
    ```
-2. **GitHub Release**：从 [Releases](https://github.com/ONEGAYI/vsidian-codex-bridge/releases) 下载 VSIX，扩展面板「… → 从 VSIX 安装…」选择下载的文件。
+2. **GitHub Release**：从 [Releases](https://github.com/ONEGAYI/vsidian-agent-bridge/releases) 下载 VSIX，扩展面板「… → 从 VSIX 安装…」选择下载的文件。
 
-安装后按提示重载窗口即生效。想确认装好了，可以做两件事：
+安装后按提示重载窗口即生效。可以这样确认：
 
 1. 从 Codex 聊天复制一段带链接的内容，粘贴到 Vsidian 笔记，链接应当可以点击；
-2. 「外观 → 主题」选择 Codex，打开一篇含 Mermaid 图的笔记并切到暗色模式，画布应当是深灰底色。
+2. 使用支持公式还原的宿主，从反重力复制一段带行内公式的内容，粘贴到 Vsidian；在源码中应看到一对 `$` 定界符；
+3. 「外观 → 主题」选择 Codex，打开一篇含 Mermaid 图的笔记并切到暗色模式，画布应当是深灰底色。
 
 ## 升级、停用与卸载
 
 - Marketplace 安装的组件随发布自动更新；VSIX 渠道下载新版 VSIX 覆盖安装即可。各版本变化见 [CHANGELOG](CHANGELOG.md)。
+- 原 **Vsidian Codex Bridge** 和 **Vsidian Agent Bridge** 共用安装 ID `ONEGAYI.vsidian-codex-bridge`，不需要重新安装或重新选择 Codex 主题。
 - 停用或卸载组件，Vsidian 完全可用：粘贴回落内置转换，Mermaid 回落内置 default 主题。已选的 Codex 主题设置保留，组件恢复后自动回到 Codex 渲染。
 
 ## 版本兼容

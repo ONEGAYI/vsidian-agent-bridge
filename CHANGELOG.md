@@ -4,7 +4,9 @@
 
 ## Unreleased - 开发中
 
-（暂无）
+- 项目改名为 Vsidian Agent Bridge；安装 ID 与 Codex 主题 ID 保持不变。
+- 支持从反重力等来源的 KaTeX HTML 剪贴板还原行内公式，需要支持粘贴公式槽 `inlineMath` 的 Vsidian 本体。
+- Vsidian 组件设置页提供 Codex 链接还原、KaTeX 行内公式还原和 Codex Mermaid 主题三个独立开关。
 
 ## [0.1.2] - 2026-10-24
 

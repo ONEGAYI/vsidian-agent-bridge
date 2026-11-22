@@ -19,6 +19,7 @@
 // 私有全局名在宿主侧仍无观测面，色板细节证据由浏览器层冒烟承载
 // （ADR-0003）——README 手动验证清单含人工证据点。
 import * as vscode from 'vscode'
+import assert from 'node:assert/strict'
 import { ADDON_ID, CODEX_RENDERER_ID } from '../../src/codex/meta'
 
 const HOST_ID = 'onegayi.vsidian'
@@ -30,7 +31,7 @@ interface ThemeState {
   themes: Array<{ themeRef: string; available: boolean }>
   preferred: string
   preferredAvailable: boolean
-  table: { languages: Array<{ language: string; effective: string }> }
+  table: { providers: Array<{ providerId: string }>; languages: Array<{ language: string; effective: string }> }
 }
 interface PaintContainer {
   language: string
@@ -106,6 +107,7 @@ const CASES: Array<[string, () => Promise<void>]> = [
       await self.activate()
     }
     if (!self.isActive) throw new Error(`${ADDON_ID} 激活失败`)
+    assert.equal(self.packageJSON.displayName, 'Vsidian Agent Bridge')
     console.log(`[宿主验证] ${ADDON_ID} isActive=${self.isActive}；宿主 ${HOST_ID} isActive=${host.isActive}`)
   }],
 
@@ -119,7 +121,63 @@ const CASES: Array<[string, () => Promise<void>]> = [
     console.log(`[宿主验证] 目录快照 themes=${JSON.stringify(directory.themes)}`)
   }],
 
-  ['选择 Codex 主题后 mermaid 渲染走组件，停用回落内置且保留首选（降级底线）', async () => {
+  ['组件设置页的独立开关实际撤回和恢复贡献，重开仍保留工作区覆盖', async () => {
+    const args = { addonId: ADDON_ID }
+    const math = 'paste.katexInlineMath', links = 'paste.codexLinks', theme = 'appearance.codexMermaid'
+    const readSettings = () => vscode.commands.executeCommand<{ values: Record<string, unknown>; sources: Record<string, string> }>(`${PREFIX}addonSettingsGet`, args)
+    const readRules = async () => {
+      const snapshot = await vscode.commands.executeCommand<{ rules: { addonId: string; id: string }[] }>(`${PREFIX}addonPasteRulesSnapshot`)
+      return snapshot!.rules.filter(rule => rule.addonId === ADDON_ID).map(rule => rule.id).sort()
+    }
+    const linkRules = ['codex-prompt-link', 'codex-prompt-link-legacy-url']
+    const allRules = [...linkRules, 'katex-inline-math']
+    const waitRules = (expected: string[]) => wait('已保存设置应用到粘贴规则', async () =>
+      JSON.stringify(await readRules()) === JSON.stringify(expected) ? true : undefined)
+    const openSettings = async () => {
+      await vscode.commands.executeCommand('onegayi.vsidian.openSettings')
+      await wait('Vsidian 设置页就绪', async () => {
+        const page = await vscode.commands.executeCommand<{ open: boolean; ready: boolean }>(`${PREFIX}settingsPageInfo`)
+        return page?.open && page.ready ? true : undefined
+      })
+      const area = await vscode.commands.executeCommand<{ open: string }>(`${PREFIX}addonSettingsArea`, args)
+      assert.equal(area?.open, 'ok')
+    }
+    const setWorkspace = async (key: string, value: boolean) => {
+      await vscode.commands.executeCommand(`${PREFIX}injectSettingsPageMessage`, {
+        kind: 'addons.settingsUpdate', ...args, scope: 'workspace', values: { [key]: value },
+      })
+      await wait(`工作区设置 ${key}=${value}`, async () => {
+        const current = await readSettings()
+        return current?.values[key] === value && current.sources[key] === 'workspace' ? true : undefined
+      })
+    }
+    assert.deepEqual((await readSettings())?.values, { [links]: true, [math]: true, [theme]: true })
+    assert.deepEqual(await readRules(), allRules, '须使用支持粘贴公式槽 inlineMath 的 Vsidian 构建')
+    try {
+      await openSettings()
+      await setWorkspace(math, false)
+      await waitRules(linkRules)
+      await setWorkspace(theme, false)
+      await wait('已保存设置撤回主题候选', async () =>
+        (await state())?.themes.some(item => item.themeRef === THEME_REF) === false ? true : undefined)
+      assert.deepEqual(await readRules(), linkRules)
+      await vscode.commands.executeCommand(`${PREFIX}closeSettingsPage`)
+      await openSettings()
+      assert.equal((await readSettings())?.sources[math], 'workspace')
+      assert.equal((await readSettings())?.values[math], false)
+      await setWorkspace(links, false)
+      await setWorkspace(math, true)
+      await waitRules(['katex-inline-math'])
+    } finally {
+      for (const key of [math, links, theme]) {
+        await vscode.commands.executeCommand(`${PREFIX}addonSettingsClearOverride`, { ...args, key })
+      }
+      await vscode.commands.executeCommand(`${PREFIX}closeSettingsPage`)
+    }
+    assert.deepEqual(await readRules(), allRules)
+  }],
+
+  ['启动前关闭主题不接管 Mermaid；开启并选中后可渲染，停用保留首选', async () => {
     // 渲染与停用回落共用同一文档生命周期（开一次面板内先断言组件渲染、
     // 再停用断言回落）——对齐上游 addonThemeCases 的验证形态：closeAll-
     // Editors 后立即二次 openWith 存在面板销毁/重建竞态（实测三次两中，
@@ -128,15 +186,29 @@ const CASES: Array<[string, () => Promise<void>]> = [
     const root = vscode.workspace.workspaceFolders![0]!.uri
     const uri = vscode.Uri.joinPath(root, 'codex-host-check.md')
     const content = '# Codex 宿主验证\n\n```mermaid\ngraph TD; A-->B\n```\n\n收尾段落\n'
+    const themeSetting = { addonId: ADDON_ID, key: 'appearance.codexMermaid' }
     try {
+      const off = await vscode.commands.executeCommand<{ ok: boolean }>(`${PREFIX}addonSettingsUpdate`, {
+        addonId: ADDON_ID, scope: 'workspace', values: { [themeSetting.key]: false },
+      })
+      assert.equal(off?.ok, true)
+      await vscode.commands.executeCommand(`${PREFIX}addonSetEnabled`, { addonId: ADDON_ID, enabled: false })
+      await vscode.commands.executeCommand(`${PREFIX}addonSetEnabled`, { addonId: ADDON_ID, enabled: true })
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(content))
+      await vscode.commands.executeCommand('vscode.openWith', uri, 'onegayi.vsidian.editor')
+      // 等本代次提供者实际上报，避免在装载前看见内置渲染而假绿。
+      const offState = await wait('关闭时的主题提供者已上报', async () => {
+        const current = await state()
+        return current?.table.providers.some(item => item.providerId === PROVIDER_ID) ? current : undefined
+      })
+      assert.equal(offState.themes.some(item => item.themeRef === THEME_REF), false)
+      assert.equal(offState.table.languages.find(item => item.language === 'mermaid')?.effective, 'builtin')
+      await vscode.commands.executeCommand(`${PREFIX}addonSettingsClearOverride`, themeSetting)
+      assert.equal((await state())?.themes.some(item => item.themeRef === THEME_REF && item.available), true)
+
       const applyResult = await vscode.commands.executeCommand(`${PREFIX}setSettings`, { 'appearance.theme': THEME_REF })
       console.log(`[宿主验证] setSettings 返回 ok=${(applyResult as { ok?: boolean })?.ok}（appearance.theme=${THEME_REF}）`)
-      // 设置广播是异步的：等目录侧 preferred 落到 THEME_REF 即开文档。
-      // 不等生效表指向组件渲染器——生效表的 provider 条目以页面渲染
-      // 提供者已注册为前提（面板至少开过一次），先等它是次序颠倒的
-      // 恒假条件（实测 60s 探针 mermaidEffective 恒 builtin 而 preferred/
-      // preferredAvailable 均已落地）；选路正确性的硬证据由下方的 paint
-      // 容器断言直接承载
+      // 设置广播是异步的：先等首选生效，再等已打开的编辑器实际绘制。
       await waitProbe('主题首选落地（preferred）', async () => {
         const current = await state()
         return current?.preferred === THEME_REF ? true : undefined
@@ -144,8 +216,6 @@ const CASES: Array<[string, () => Promise<void>]> = [
         const current = await state()
         return { preferred: current?.preferred, preferredAvailable: current?.preferredAvailable, mermaidEffective: current?.table.languages.find((e) => e.language === 'mermaid')?.effective }
       })
-      await vscode.workspace.fs.writeFile(uri, Buffer.from(content))
-      await vscode.commands.executeCommand('vscode.openWith', uri, 'onegayi.vsidian.editor')
       // ---- 断言层 ③：容器真实绘制走组件 ----
       // provider 是平台写在图形容器上的生效提供者标记（${PROVIDER_ID}）。
       // 探针语义按 vsidian #629（c1ae8410）分桶修正后回原为三条件合成：
@@ -188,6 +258,7 @@ const CASES: Array<[string, () => Promise<void>]> = [
       })
       console.log(`[宿主验证] 停用后 builtinSvg=${after.builtinSvg}；目录 preferred=${THEME_REF}（保留）、mermaid effective=builtin`)
     } finally {
+      await vscode.commands.executeCommand(`${PREFIX}addonSettingsClearOverride`, themeSetting)
       await vscode.commands.executeCommand('workbench.action.closeAllEditors')
       await vscode.commands.executeCommand(`${PREFIX}addonSetEnabled`, { addonId: ADDON_ID, enabled: true })
       await vscode.commands.executeCommand(`${PREFIX}setSettings`, {
