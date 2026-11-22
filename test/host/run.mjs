@@ -1,6 +1,7 @@
 // 真宿主安装验证入口（票 #4 常驻宿主测试基建层，衔接 #3 遗留项）：
 //
 //   npm run test:host -- --host <vsidian仓根>
+//   npm run test:host -- --host <旧宿主仓根> --legacy-host
 //
 // 流程：构建验证套件（esbuild → .vscode-test/host-suite/suite.js）→ 定位
 // vsidian 宿主产物（--host / VSIDIAN_HOST_OUT，自检含 batch-2 主题 API 面）
@@ -25,7 +26,6 @@ import { runTestHost, resolveTestHostMode } from './silentHost.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const cacheDir = path.join(repoRoot, '.vscode-test')
-const reportPath = path.join(cacheDir, 'host-check.log')
 
 function fail(message) {
   console.error(`[host-check] ${message}`)
@@ -94,6 +94,8 @@ async function resolveExecutable() {
 
 async function main() {
   const args = process.argv.slice(2)
+  const legacyHost = args.includes('--legacy-host')
+  const reportPath = path.join(cacheDir, legacyHost ? 'host-check-legacy.log' : 'host-check.log')
   // 静默模式预检（PR #5 约定统一）：非 Windows 无隔离后端直接拒绝——
   // 提前到下载 VSCode（约 130MB）与构建套件之前，失败原因立即可见
   resolveTestHostMode()
@@ -150,11 +152,11 @@ async function main() {
     wsFile,
   ]
 
-  console.log(`[host-check] 静默启动下界宿主 VSCode 1.82.3（独立桌面，报告 ${reportPath}）…`)
+  console.log(`[host-check] 静默启动 VSCode 1.82.3（${legacyHost ? '旧宿主降级' : '公式槽验收'}；独立桌面，报告 ${reportPath}）…`)
   const code = await runTestHost({
     executable,
     args: launchArgs,
-    env: { ...process.env, VSIDIAN_TEST_HOOKS: '1', ELECTRON_NO_ATTACH_CONSOLE: '1' },
+    env: { ...process.env, VSIDIAN_TEST_HOOKS: '1', ELECTRON_NO_ATTACH_CONSOLE: '1', VSIDIAN_BRIDGE_LEGACY_HOST: legacyHost ? '1' : '0' },
     timeoutMs: 5 * 60_000,
     reportPath,
   })

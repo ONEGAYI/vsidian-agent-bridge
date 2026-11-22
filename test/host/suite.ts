@@ -26,6 +26,7 @@ const HOST_ID = 'onegayi.vsidian'
 const PREFIX = 'onegayi.vsidian._test.'
 const THEME_REF = `${ADDON_ID}/codex`
 const PROVIDER_ID = `${ADDON_ID}/${CODEX_RENDERER_ID}`
+const LEGACY_HOST = process.env.VSIDIAN_BRIDGE_LEGACY_HOST === '1'
 
 interface ThemeState {
   themes: Array<{ themeRef: string; available: boolean }>
@@ -130,7 +131,8 @@ const CASES: Array<[string, () => Promise<void>]> = [
       return snapshot!.rules.filter(rule => rule.addonId === ADDON_ID).map(rule => rule.id).sort()
     }
     const linkRules = ['codex-prompt-link', 'codex-prompt-link-legacy-url']
-    const allRules = [...linkRules, 'katex-inline-math']
+    const mathRules = LEGACY_HOST ? [] : ['katex-inline-math']
+    const allRules = [...linkRules, ...mathRules]
     const waitRules = (expected: string[]) => wait('已保存设置应用到粘贴规则', async () =>
       JSON.stringify(await readRules()) === JSON.stringify(expected) ? true : undefined)
     const openSettings = async () => {
@@ -142,22 +144,36 @@ const CASES: Array<[string, () => Promise<void>]> = [
       const area = await vscode.commands.executeCommand<{ open: string }>(`${PREFIX}addonSettingsArea`, args)
       assert.equal(area?.open, 'ok')
     }
-    const setWorkspace = async (key: string, value: boolean) => {
-      await vscode.commands.executeCommand(`${PREFIX}injectSettingsPageMessage`, {
-        kind: 'addons.settingsUpdate', ...args, scope: 'workspace', values: { [key]: value },
-      })
-      await wait(`工作区设置 ${key}=${value}`, async () => {
+    const waitSetting = (key: string, value: boolean, scope: 'user' | 'workspace') =>
+      wait(`${scope} 设置 ${key}=${value}`, async () => {
         const current = await readSettings()
-        return current?.values[key] === value && current.sources[key] === 'workspace' ? true : undefined
+        return current?.values[key] === value && current.sources[key] === scope ? true : undefined
       })
+    const setSetting = async (scope: 'user' | 'workspace', key: string, value: boolean) => {
+      await vscode.commands.executeCommand(`${PREFIX}injectSettingsPageMessage`, {
+        kind: 'addons.settingsUpdate', ...args, scope, values: { [key]: value },
+      })
+      await waitSetting(key, value, scope)
     }
     assert.deepEqual((await readSettings())?.values, { [links]: true, [math]: true, [theme]: true })
-    assert.deepEqual(await readRules(), allRules, '须使用支持粘贴公式槽 inlineMath 的 Vsidian 构建')
+    assert.deepEqual(await readRules(), allRules, LEGACY_HOST
+      ? '--legacy-host 须使用没有 inlineMath 的宿主，Codex 链接仍应注册'
+      : '须使用支持 inlineMath 的 Vsidian 构建；验证旧宿主降级请使用 --legacy-host')
     try {
       await openSettings()
-      await setWorkspace(math, false)
+      await setSetting('user', links, false)
+      await waitRules(mathRules)
+      await setSetting('workspace', links, true)
+      await waitRules(allRules)
+      await vscode.commands.executeCommand(`${PREFIX}addonSettingsClearOverride`, { ...args, key: links })
+      await waitSetting(links, false, 'user')
+      await waitRules(mathRules)
+      await setSetting('user', links, true)
+      await waitRules(allRules)
+
+      await setSetting('workspace', math, false)
       await waitRules(linkRules)
-      await setWorkspace(theme, false)
+      await setSetting('workspace', theme, false)
       await wait('已保存设置撤回主题候选', async () =>
         (await state())?.themes.some(item => item.themeRef === THEME_REF) === false ? true : undefined)
       assert.deepEqual(await readRules(), linkRules)
@@ -165,9 +181,9 @@ const CASES: Array<[string, () => Promise<void>]> = [
       await openSettings()
       assert.equal((await readSettings())?.sources[math], 'workspace')
       assert.equal((await readSettings())?.values[math], false)
-      await setWorkspace(links, false)
-      await setWorkspace(math, true)
-      await waitRules(['katex-inline-math'])
+      await setSetting('workspace', links, false)
+      await setSetting('workspace', math, true)
+      await waitRules(mathRules)
     } finally {
       for (const key of [math, links, theme]) {
         await vscode.commands.executeCommand(`${PREFIX}addonSettingsClearOverride`, { ...args, key })
