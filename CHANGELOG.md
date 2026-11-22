@@ -4,9 +4,27 @@
 
 ## Unreleased - 开发中
 
-- 项目改名为 Vsidian Agent Bridge；安装 ID 与 Codex 主题 ID 保持不变。
-- 支持从反重力等来源的 KaTeX HTML 剪贴板还原行内公式，需要支持粘贴公式槽 `inlineMath` 的 Vsidian 本体。
-- Vsidian 组件设置页提供 Codex 链接还原、KaTeX 行内公式还原和 Codex Mermaid 主题三个独立开关。
+## [0.2.0] - 2026-11-22
+
+Vsidian Codex Bridge 更名为 Vsidian Agent Bridge。新版可在粘贴时还原反重力的行内公式，也可以分别开关每项组件能力。
+
+### 新功能
+
+**粘贴反重力的行内公式**（[Bridge #10](https://github.com/ONEGAYI/vsidian-agent-bridge/pull/10)、[Vsidian #694](https://github.com/ONEGAYI/vsidian/pull/694)）
+
+- 在 Live 编辑模式保留格式粘贴时，从反重力等来源的 KaTeX HTML 读取 TeX 注解，还原成 Markdown 的 `$…$` 行内公式。
+- 纯文本粘贴和块级公式仍走原有路径。若富文本会破坏相邻公式或导致阅读视图吞掉新正文，保留剪贴板原有纯文本与换行。
+
+**三个独立开关**（[Bridge #10](https://github.com/ONEGAYI/vsidian-agent-bridge/pull/10)）
+
+- 从「Vsidian 设置 → 第三方组件 → Vsidian Agent Bridge」分别控制 Codex 链接还原、KaTeX 行内公式还原和 Codex Mermaid 主题。三项默认开启。
+- 可以修改用户默认值，也可以只覆盖当前工作区。关闭主题开关不会改写已选主题。
+
+### 改进
+
+- 扩展显示名与仓库改为 Vsidian Agent Bridge；安装 ID `ONEGAYI.vsidian-codex-bridge` 和 Codex 主题 ID 不变，原扩展可直接升级。
+
+> **宿主兼容性**：行内公式还原需要 Vsidian 1.8.0 或更高版本。旧宿主仍可使用 Codex 链接还原、Mermaid 主题和组件设置。
 
 ## [0.1.2] - 2026-10-24
 
@@ -64,6 +82,7 @@
 - Marketplace 图标未设置：本仓暂无图标资产，Marketplace 页面使用默认占位（决策见 ADR-0004）。
 
 <!-- 变更链接
+0.2.0: https://github.com/ONEGAYI/vsidian-agent-bridge/compare/v0.1.2...v0.2.0
 0.1.1: https://github.com/ONEGAYI/vsidian-codex-bridge/compare/v0.1.0...v0.1.1
 0.1.0: https://github.com/ONEGAYI/vsidian-codex-bridge/commits/v0.1.0
 -->

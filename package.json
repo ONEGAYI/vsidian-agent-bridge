@@ -3,7 +3,7 @@
 	"publisher": "ONEGAYI",
 	"displayName": "Vsidian Agent Bridge",
 	"description": "把 AI 助手的富文本带进 Vsidian：还原 Codex 链接和 KaTeX 行内公式，并提供 Codex Mermaid 主题。",
-	"version": "0.1.2",
+	"version": "0.2.0",
 	"license": "MIT",
 	"private": true,
 	"repository": {
