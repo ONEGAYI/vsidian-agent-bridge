@@ -12,7 +12,7 @@
 // 适配版）在**独立桌面**静默启动宿主：--extensionTestsPath 装载套件、
 // --extensionDevelopmentPath 同时装载 vsidian 宿主与本组件 dist 产物
 // （extensionDependencies 在开发装载下不经市场解析，两侧都显式给路径）
-// → 报告落盘 .vscode-test/host-check.log → 退出码透传。
+// → 报告按宿主模式分别落盘 .vscode-test/host-check*.log → 退出码透传。
 // 静默性：Windows 默认 desktop 模式（VSIDIAN_TEST_HOST_MODE 可显式
 // foreground / desktop），宿主窗口只存在于测试桌面，用户桌面不可见；
 // 结束时的「可见窗口峰值 / 前台 PID」证据行随报告落盘。非 Windows 无
@@ -97,7 +97,8 @@ async function main() {
   const args = process.argv.slice(2)
   const legacyHost = args.includes('--legacy-host')
   const blockMathHost = args.includes('--block-math-host')
-  const reportPath = path.join(cacheDir, legacyHost ? 'host-check-legacy.log' : 'host-check.log')
+  const reportSuffix = legacyHost ? '-legacy' : blockMathHost ? '-block-math' : ''
+  const reportPath = path.join(cacheDir, `host-check${reportSuffix}.log`)
   // 静默模式预检（PR #5 约定统一）：非 Windows 无隔离后端直接拒绝——
   // 提前到下载 VSCode（约 130MB）与构建套件之前，失败原因立即可见
   resolveTestHostMode()
@@ -154,7 +155,7 @@ async function main() {
     wsFile,
   ]
 
-  console.log(`[host-check] 静默启动 VSCode 1.82.3（${legacyHost ? '旧宿主降级' : '公式槽验收'}；独立桌面，报告 ${reportPath}）…`)
+  console.log(`[host-check] 静默启动 VSCode 1.82.3（${legacyHost ? '旧宿主降级' : blockMathHost ? '块公式槽验收' : '行内公式槽验收'}；独立桌面，报告 ${reportPath}）…`)
   const code = await runTestHost({
     executable,
     args: launchArgs,
