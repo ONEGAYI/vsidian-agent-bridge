@@ -27,6 +27,7 @@ const PREFIX = 'onegayi.vsidian._test.'
 const THEME_REF = `${ADDON_ID}/codex`
 const PROVIDER_ID = `${ADDON_ID}/${CODEX_RENDERER_ID}`
 const LEGACY_HOST = process.env.VSIDIAN_BRIDGE_LEGACY_HOST === '1'
+const BLOCK_MATH_HOST = process.env.VSIDIAN_BRIDGE_BLOCK_MATH_HOST === '1'
 
 interface ThemeState {
   themes: Array<{ themeRef: string; available: boolean }>
@@ -131,7 +132,7 @@ const CASES: Array<[string, () => Promise<void>]> = [
       return snapshot!.rules.filter(rule => rule.addonId === ADDON_ID).map(rule => rule.id).sort()
     }
     const linkRules = ['codex-prompt-link', 'codex-prompt-link-legacy-url']
-    const mathRules = LEGACY_HOST ? [] : ['katex-inline-math']
+    const mathRules = LEGACY_HOST ? [] : BLOCK_MATH_HOST ? ['katex-block-math', 'katex-inline-math'] : ['katex-inline-math']
     const allRules = [...linkRules, ...mathRules]
     const waitRules = (expected: string[]) => wait('已保存设置应用到粘贴规则', async () =>
       JSON.stringify(await readRules()) === JSON.stringify(expected) ? true : undefined)

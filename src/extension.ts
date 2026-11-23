@@ -20,8 +20,8 @@ const features = [
   },
   {
     key: 'paste.katexInlineMath',
-    zh: 'KaTeX 行内公式还原（含反重力）',
-    en: 'Restore KaTeX inline math (including Antigravity)',
+    zh: 'KaTeX 公式还原（含反重力）',
+    en: 'Restore KaTeX math (including Antigravity)',
     register: (ctx: AddonEnableContext) => registerKatexPasteRules(ctx.paste),
   },
   {

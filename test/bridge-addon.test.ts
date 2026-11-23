@@ -8,7 +8,7 @@ const LINKS = 'paste.codexLinks'
 const MATH = 'paste.katexInlineMath'
 const THEME = 'appearance.codexMermaid'
 
-function host({ old = false, values = {} }: { old?: boolean; values?: Record<string, boolean> } = {}) {
+function host({ old = false, block = true, values = {} }: { old?: boolean; block?: boolean; values?: Record<string, boolean> } = {}) {
   const definitions: { key: string; default: boolean }[] = []
   const active = new Set<string>()
   const register = (id: string) => {
@@ -34,8 +34,8 @@ function host({ old = false, values = {} }: { old?: boolean; values?: Record<str
       themeKnown = true
       return register('codex')
     } },
-    paste: { registerRules: vi.fn((rules: { id: string; output: { slots: { tex?: { inlineMath?: true } } } }[]) => {
-      if (old && rules.some(r => r.output.slots.tex?.inlineMath)) {
+    paste: { registerRules: vi.fn((rules: { id: string; output: { slots: { tex?: { inlineMath?: true; blockMath?: true } } } }[]) => {
+      if (rules.some(r => (old && r.output.slots.tex?.inlineMath) || ((old || !block) && r.output.slots.tex?.blockMath))) {
         return { ok: false, reason: 'invalid-declaration', detail: 'unsupported output' }
       }
       return register(rules[0]!.id)
@@ -69,7 +69,7 @@ describe('Agent Bridge 组件开关', () => {
   it('设置变化只注册或撤销对应功能，关闭组件后不再响应', () => {
     const h = host({ values: { [THEME]: false } })
     h.enable()
-    expect(h.active).toEqual(new Set(['codex-prompt-link', 'katex-inline-math']))
+    expect(h.active).toEqual(new Set(['codex-prompt-link', 'katex-inline-math', 'katex-block-math']))
     expect(h.registerEditor).toHaveReturnedWith({ themeKnown: true, candidate: false })
     h.change(MATH, false)
     expect(h.active).toEqual(new Set(['codex-prompt-link']))
@@ -79,7 +79,7 @@ describe('Agent Bridge 组件开关', () => {
     expect(h.active).toEqual(new Set(['codex']))
     h.change(MATH, true)
     h.change(THEME, false)
-    expect(h.active).toEqual(new Set(['katex-inline-math']))
+    expect(h.active).toEqual(new Set(['katex-inline-math', 'katex-block-math']))
     expect(h.registerEditor).toHaveBeenCalledTimes(1)
     h.disable()
     expect(h.active.size).toBe(0)
@@ -87,7 +87,7 @@ describe('Agent Bridge 组件开关', () => {
     h.change(LINKS, true)
     expect(h.active.size).toBe(0)
     h.enable()
-    expect(h.active).toEqual(new Set(['codex-prompt-link', 'katex-inline-math']))
+    expect(h.active).toEqual(new Set(['codex-prompt-link', 'katex-inline-math', 'katex-block-math']))
   })
 
   it('旧宿主拒绝公式规则时仍保留链接和主题', () => {
@@ -96,7 +96,17 @@ describe('Agent Bridge 组件开关', () => {
       const h = host({ old: true })
       h.enable()
       expect(h.active).toEqual(new Set(['codex-prompt-link', 'codex']))
-      expect(h.registerRules).toHaveBeenCalledTimes(2)
+      expect(h.registerRules).toHaveBeenCalledTimes(3)
+      expect(warn).toHaveBeenCalledTimes(2)
+    } finally { warn.mockRestore() }
+  })
+  it('仅支持行内公式的宿主仍保留已登记的两项粘贴能力', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const h = host({ block: false })
+      h.enable()
+      expect(h.active).toEqual(new Set(['codex-prompt-link', 'katex-inline-math', 'codex']))
+      expect(h.registerRules).toHaveBeenCalledTimes(3)
       expect(warn).toHaveBeenCalledTimes(1)
     } finally { warn.mockRestore() }
   })

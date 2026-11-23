@@ -82,9 +82,8 @@ export function registerCodexPasteRules(paste: AddonPasteRulesContextApi): Addon
 }
 
 export function registerKatexPasteRules(paste: AddonPasteRulesContextApi): AddonPasteRulesRegisterResult {
-  // inlineMath 是后续宿主新增的模板槽选项。与已发行 Codex 链接规则分批注册，
-  // 旧宿主拒绝公式规则时不会撤回已注册的链接规则。
-  return registerPasteRules(paste, 'KaTeX inline math', [{
+  // 两种公式分别登记；不支持块公式槽的宿主仍保留已成功登记的行内规则。
+  const inline = registerPasteRules(paste, 'KaTeX inline math', [{
     id: 'katex-inline-math',
     match: {
       tag: 'SPAN',
@@ -92,6 +91,17 @@ export function registerKatexPasteRules(paste: AddonPasteRulesContextApi): Addon
     },
     output: { kind: 'template', template: '{{tex}}', slots: { tex: { source: { kind: 'text' }, inlineMath: true } } },
   }])
+  const block = registerPasteRules(paste, 'KaTeX block math', [{
+    id: 'katex-block-math',
+    match: {
+      tag: 'SPAN',
+      condition: { kind: 'attribute-regex', name: 'class', regex: { pattern: '(?:^|\\s)katex(?:-display)?(?:\\s|$)' } },
+    },
+    output: { kind: 'template', template: '{{tex}}', slots: { tex: { source: { kind: 'text' }, blockMath: true } } },
+  }])
+  if (!inline.ok) return block
+  if (!block.ok) return inline
+  return { ok: true, dispose() { inline.dispose(); block.dispose() } }
 }
 
 function registerPasteRules(paste: AddonPasteRulesContextApi, feature: string, rules: readonly unknown[]): AddonPasteRulesRegisterResult {

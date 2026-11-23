@@ -2,6 +2,7 @@
 //
 //   npm run test:host -- --host <vsidian仓根>
 //   npm run test:host -- --host <旧宿主仓根> --legacy-host
+//   npm run test:host -- --host <支持块公式槽的宿主仓根> --block-math-host
 //
 // 流程：构建验证套件（esbuild → .vscode-test/host-suite/suite.js）→ 定位
 // vsidian 宿主产物（--host / VSIDIAN_HOST_OUT，自检含 batch-2 主题 API 面）
@@ -95,6 +96,7 @@ async function resolveExecutable() {
 async function main() {
   const args = process.argv.slice(2)
   const legacyHost = args.includes('--legacy-host')
+  const blockMathHost = args.includes('--block-math-host')
   const reportPath = path.join(cacheDir, legacyHost ? 'host-check-legacy.log' : 'host-check.log')
   // 静默模式预检（PR #5 约定统一）：非 Windows 无隔离后端直接拒绝——
   // 提前到下载 VSCode（约 130MB）与构建套件之前，失败原因立即可见
@@ -156,7 +158,8 @@ async function main() {
   const code = await runTestHost({
     executable,
     args: launchArgs,
-    env: { ...process.env, VSIDIAN_TEST_HOOKS: '1', ELECTRON_NO_ATTACH_CONSOLE: '1', VSIDIAN_BRIDGE_LEGACY_HOST: legacyHost ? '1' : '0' },
+    env: { ...process.env, VSIDIAN_TEST_HOOKS: '1', ELECTRON_NO_ATTACH_CONSOLE: '1',
+      VSIDIAN_BRIDGE_LEGACY_HOST: legacyHost ? '1' : '0', VSIDIAN_BRIDGE_BLOCK_MATH_HOST: blockMathHost ? '1' : '0' },
     timeoutMs: 5 * 60_000,
     reportPath,
   })

@@ -4,7 +4,7 @@
 
 ## 在 Vsidian 里独立开关功能
 
-打开「Vsidian 设置 → 第三方组件 → Vsidian Agent Bridge」。**Codex 链接还原**、**KaTeX 行内公式还原**和 **Codex Mermaid 主题**默认开启，可分别修改用户默认或覆盖当前工作区。主题开关只控制候选是否可用，不改变你的首选主题。
+打开「Vsidian 设置 → 第三方组件 → Vsidian Agent Bridge」。**Codex 链接还原**、**KaTeX 公式还原**和 **Codex Mermaid 主题**默认开启，可分别修改用户默认或覆盖当前工作区。主题开关只控制候选是否可用，不改变你的首选主题。
 
 ## 粘贴 Codex 内容，链接还是链接
 
@@ -17,11 +17,11 @@
 
 还原发生在粘贴这一步，已经写进笔记的内容不会被二次改动。
 
-## 粘贴反重力的行内公式
+## 粘贴反重力的公式
 
-在 Vsidian 的 Live 编辑模式下正常粘贴。若剪贴板 HTML 包含 KaTeX 的原始 TeX 注解，像 `(SD, COMPS, OBS, P, N)` 这样的公式会还原为 `$(SD, COMPS, OBS, P, N)$`，不会贴入屏幕显示的逐字副本。纯文本粘贴和块级公式仍走宿主原有路径。
+在 Vsidian 的 Live 编辑模式下保留格式粘贴。HTML 中有 KaTeX 原始 TeX 注解时，行内公式还原为 `$…$`。开发版支持块公式槽的宿主会把行间公式还原为独立的 `$$` 公式块。纯文本粘贴不经过公式规则。
 
-公式还原需要 Vsidian 1.8.0 或更高版本；旧宿主仍可用 Codex 链接还原、主题与设置页。
+行内公式还原需要 Vsidian 1.8.0 或更高版本。尚不支持块公式槽的宿主继续还原行内公式；更旧的宿主仍可用 Codex 链接还原、主题与设置页。
 
 ## Mermaid 图的 Codex 主题
 
@@ -74,6 +74,8 @@ npm run package                      # 本地 VSIX 打包（含内容与体积�
 npm run test:host                    # 宿主层静默验证（需 --host 指向 vsidian 构建产物仓）
 node test/browser/smoke-mermaid.mjs  # 浏览器层冒烟（需 vsidian 主仓的 Playwright）
 ```
+
+验证支持块公式槽的宿主时，在宿主层验证命令后加 `-- --host <Vsidian 工作树> --block-math-host`。
 
 架构决策见 [docs/adr/](docs/adr/)，开发规范与任务台账见 [AGENTS.md](AGENTS.md)，发布流程见 [ADR-0004](docs/adr/0004-发布与分发形态.md)。
 
