@@ -4,9 +4,18 @@
 
 ## Unreleased - 开发中
 
+## [0.3.0] - 2026-11-23
+
+从反重力（Antigravity）复制的行间公式，粘贴到 Vsidian 后可保留为可编辑的公式块。
+
 ### 新功能
 
-- 在支持块公式粘贴槽的 Vsidian 构建中，反重力等来源的 KaTeX 行间公式可还原为可编辑的独立公式块。沿用原有公式还原开关。
+**粘贴还原块公式**（[Bridge #11](https://github.com/ONEGAYI/vsidian-agent-bridge/pull/11)、[Vsidian #707](https://github.com/ONEGAYI/vsidian/pull/707)）
+
+- 保留格式粘贴时，反重力等来源的 KaTeX 行间公式会还原成独立的 `$$` 块，多行 TeX 保持原样。
+- 行内公式和块公式共用「KaTeX 公式还原」开关；原扩展可直接升级，不需要重新安装或设置。
+
+> **宿主兼容性**：块公式还原需要 Vsidian 1.9.0 或更高版本；行内公式仍从 1.8.0 起可用。Codex 链接还原、主题与设置不受影响。
 
 ## [0.2.0] - 2026-11-22
 
@@ -87,6 +96,7 @@ Vsidian Codex Bridge 更名为 Vsidian Agent Bridge。新版可在粘贴时还�
 
 <!-- 变更链接
 0.2.0: https://github.com/ONEGAYI/vsidian-agent-bridge/compare/v0.1.2...v0.2.0
+0.3.0: https://github.com/ONEGAYI/vsidian-agent-bridge/compare/v0.2.0...v0.3.0
 0.1.1: https://github.com/ONEGAYI/vsidian-codex-bridge/compare/v0.1.0...v0.1.1
 0.1.0: https://github.com/ONEGAYI/vsidian-codex-bridge/commits/v0.1.0
 -->

@@ -1,6 +1,6 @@
 # Vsidian Agent Bridge
 
-把 AI 助手的富文本带进 [Vsidian](https://github.com/ONEGAYI/vsidian)（VSCode 里的类 Obsidian Markdown 编辑器）：从 Codex 复制的链接仍是链接，从反重力（Antigravity）复制的 KaTeX 行内公式仍是公式。组件也提供 Codex Mermaid 主题。
+把 AI 助手的富文本带进 [Vsidian](https://github.com/ONEGAYI/vsidian)（VSCode 里的类 Obsidian Markdown 编辑器）：从 Codex 复制的链接仍是链接，从反重力（Antigravity）复制的 KaTeX 行内和块公式仍可编辑。组件也提供 Codex Mermaid 主题。
 
 ## 在 Vsidian 里独立开关功能
 
@@ -19,9 +19,9 @@
 
 ## 粘贴反重力的公式
 
-在 Vsidian 的 Live 编辑模式下保留格式粘贴。HTML 中有 KaTeX 原始 TeX 注解时，行内公式还原为 `$…$`。开发版支持块公式槽的宿主会把行间公式还原为独立的 `$$` 公式块。纯文本粘贴不经过公式规则。
+在 Vsidian 的实时预览模式下保留格式粘贴。来源带有原始 TeX 时，行内公式还原为 `$…$`，行间公式还原为独立的 `$$` 公式块。纯文本粘贴不会还原公式。
 
-行内公式还原需要 Vsidian 1.8.0 或更高版本。尚不支持块公式槽的宿主继续还原行内公式；更旧的宿主仍可用 Codex 链接还原、主题与设置页。
+行内公式还原需要 Vsidian 1.8.0 或更高版本，块公式还原需要 1.9.0 或更高版本。更旧的宿主仍可用 Codex 链接还原、主题与设置页。
 
 ## Mermaid 图的 Codex 主题
 
@@ -47,7 +47,7 @@ Vsidian 的「设置 → 外观 → 主题」下拉里会多出一个 **Codex** 
 安装后按提示重载窗口即生效。可以这样确认：
 
 1. 从 Codex 聊天复制一段带链接的内容，粘贴到 Vsidian 笔记，链接应当可以点击；
-2. 使用 Vsidian 1.8.0 或更高版本，从反重力复制一段带行内公式的内容并粘贴；在源码中应看到一对 `$` 定界符；
+2. 从反重力复制带公式的内容并保留格式粘贴。Vsidian 1.9.0 起，行间公式在源码中应由独立的 `$$` 行包裹；行内公式仍只用一对 `$`；
 3. 「外观 → 主题」选择 Codex，打开一篇含 Mermaid 图的笔记并切到暗色模式，画布应当是深灰底色。
 
 ## 升级、停用与卸载
@@ -60,6 +60,7 @@ Vsidian 的「设置 → 外观 → 主题」下拉里会多出一个 **Codex** 
 
 | 组件版本 | 需要 Vsidian | 说明 |
 | --- | --- | --- |
+| 0.3.0 | ≥ 1.1.0 | 行内公式还原需要 Vsidian ≥ 1.8.0，块公式还原需要 ≥ 1.9.0 |
 | 0.2.0 | ≥ 1.1.0 | 行内公式还原需要 Vsidian ≥ 1.8.0 |
 | 0.1.x | ≥ 1.1.0 | Codex 链接还原与 Mermaid 主题，随 Vsidian 附加组件 API 1.1.0 发布 |
 
