@@ -2,7 +2,7 @@
 
 [Vsidian](https://github.com/ONEGAYI/vsidian) 附加组件：把 AI 助手的富文本带进 Vsidian。仓库名与扩展显示名已改，安装 ID 始终为 `ONEGAYI.vsidian-codex-bridge`：
 
-1. **粘贴还原**：通过宿主侧 `enableCtx.paste.registerRules` 识别 Codex 的链接 `data-prompt-link-*` 属性与反重力等来源的 KaTeX 行内公式；按能力分批登记，旧宿主拒绝新公式产出时仍保留 Codex 链接。
+1. **粘贴还原**：通过宿主侧 `enableCtx.paste.registerRules` 还原 Codex 链接及反重力等来源的 KaTeX 行内、块级公式。三类规则分批登记，旧宿主拒绝块公式时仍保留支持的行内公式和链接。
 2. **Mermaid Codex 主题**：以渲染提供者身份重新提供 Codex 预设（亮暗色板、ELK 布局、六类图型），宿主侧 `enableCtx.themes.register` 登记元数据 + 页面侧 `sdk.renderers.register` 执行渲染。
 
 > 状态：**实施期**。上游 API 已落地并发行——粘贴转换（[vsidian#530](https://github.com/ONEGAYI/vsidian/issues/530)）与主题注册（[vsidian#533](https://github.com/ONEGAYI/vsidian/issues/533) / T07）已完成，2026-10-16 batch-2 PR #564 合入 vsidian main@`301d2c16` 后，上游随本体 1.1.0 发行附加组件 API 1.1.0（vendor 类型快照经首次显式 re-vendor 锚定发行提交 `80dfc285`，candidate 面全量转正、无破坏性变更；T01–T07 仍待用户整体验收）。实施顺序：**#1（脚手架）→ #2（粘贴还原）→ #3（Mermaid Codex 主题）→ #4（发布与分发）**——四票均已实施（#2 见 docs/adr/0002，#3 见 docs/adr/0003，#4 见 docs/adr/0004：VSIX 打包链与内容红线、CI 工作流、真宿主安装验证、安装升级文档），多项 `pending-decision` 按推荐先行待追认；#4 渠道决策已于 2026-10-16 经用户决策升级为**双通道自动发布**（GitHub Release + Marketplace 双开关，publish.yml 推 `v*` 标签触发，见 docs/adr/0004 决策一变更）。#3 被 [vsidian#535](https://github.com/ONEGAYI/vsidian/issues/535)（T08 内核 Codex 退役）反向等待（其前置的可安装 VSIX 与真宿主安装验证已随 #4 交付）。
@@ -38,7 +38,7 @@ vsidian-agent-bridge/
 │   └── release.d.mts          # 上者编译期类型声明（契约测试消费面）
 ├── src/
 │   ├── extension.ts           # 宿主入口：声明三个组件设置开关，按生效值装卸相应贡献
-│   ├── paste-rules.ts         # Codex 链接和 KaTeX 行内公式规则，独立注册
+│   ├── paste-rules.ts         # Codex 链接与 KaTeX 行内、块级公式规则，独立注册
 │   ├── page-editor.ts         # 编辑器页 IIFE 入口：渲染提供者装配（codexPageFactory）
 │   ├── host-api.ts            # 宿主导出 API 最小声明（registerAddon 面）
 │   ├── vsidian-addon-sdk.d.ts # 虚拟模块 vsidian-addon-sdk 的 ambient 类型声明
