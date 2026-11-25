@@ -57,7 +57,7 @@ let failures = 0
 const browser = await chromium.launch()
 try {
   const page = await browser.newPage()
-  await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'commit' }).catch(() => {})
+  await page.goto(`http://127.0.0.1:${port}/?id=42&platform=electron`, { waitUntil: 'commit' }).catch(() => {})
 
   const results = await page.evaluate(async ({ port, samples }) => {
     const out = []
@@ -106,6 +106,83 @@ try {
     }
     return out
   }, { port, samples: SAMPLES })
+
+  // Vsidian 切到阅读模式时，实时预览的 SVG 仍在文档中，只是隐藏。
+  const sequence = SAMPLES.find(([name]) => name === 'sequence')[1] +
+    '\n  Note over U,S: 保留文字 #35;arrowhead'
+  await page.evaluate(async (code) => {
+    const api = globalThis.__vsidianCodexMermaid
+    const live = document.createElement('div')
+    const reading = document.createElement('div')
+    live.innerHTML = (await api.render('sequence-live', code, true)).svg
+    reading.innerHTML = (await api.render('sequence-reading', code, false)).svg
+    live.hidden = true
+    reading.id = 'sequence-reading-probe'
+    document.body.append(live, reading)
+  }, sequence)
+  const reading = page.locator('#sequence-reading-probe svg')
+  const { styledArrows, notePreserved } = await reading.evaluate((svg) => {
+    const lines = [...svg.querySelectorAll('[marker-end]')]
+    const styledArrows = lines.filter((line) => {
+      const target = document.getElementById(line.getAttribute('marker-end').slice(5, -1))
+      return target?.ownerSVGElement === svg &&
+        getComputedStyle(target.firstElementChild).fill === getComputedStyle(line).stroke
+    }).length
+    return { styledArrows, notePreserved: svg.textContent.includes('保留文字 #arrowhead') }
+  })
+  const withArrows = await reading.screenshot()
+  await reading.locator('[marker-end]').evaluateAll((lines) => lines.forEach((line) => line.removeAttribute('marker-end')))
+  const arrowheadsPainted = !withArrows.equals(await reading.screenshot())
+  results.push({
+    name: '隐藏实时预览后，阅读时序图的请求与响应箭头仍按主题色绘制',
+    ok: styledArrows === 2 && arrowheadsPainted && notePreserved,
+    detail: `本图同色箭头 ${styledArrows}/2；箭头像素 ${arrowheadsPainted}；图中文字保留 ${notePreserved}`,
+  })
+
+  results.push(await page.evaluate(async (sequence) => {
+    document.body.replaceChildren()
+    const api = globalThis.__vsidianCodexMermaid
+    const customTheme = [
+      '---', 'config:', '  arrowMarkerAbsolute: true', '  themeCSS: |',
+      '    marker[id="arrowhead"] path { fill: #e60026 !important; }',
+      '    #\\61 rrowhead path { stroke: #0057b8 !important; }',
+      '    marker[id^="arrow"] path { opacity: 0.75 !important; }',
+      '    line[marker-end$="#arrowhead)"] { stroke-width: 3px !important; }',
+      '    .unused-edge { marker-end: url("https://example.invalid/f.svg#arrowhead"); }',
+      '---', sequence,
+    ].join('\n')
+    const { svg } = await api.render('sequence-custom-theme', customTheme, false)
+    const graph = document.createElement('div')
+    graph.innerHTML = svg
+    document.body.append(graph)
+    const line = graph.querySelector('.messageLine0')
+    const ref = line.getAttribute('marker-end')
+    const marker = document.getElementById(ref.slice(ref.lastIndexOf('#') + 1, -1))
+    const style = marker && getComputedStyle(marker.firstElementChild)
+    const { fill, stroke, opacity } = style ?? {}
+    const strokeWidth = getComputedStyle(line).strokeWidth
+    const absolute = ref.includes('platform') && ref.lastIndexOf('#') > 'url('.length
+    const external = graph.querySelector('style').textContent.includes('https://example.invalid/f.svg#arrowhead')
+    return {
+      name: '时序图保留自定义选择器、带查询串的同文档绝对箭头地址和外部链接',
+      ok: fill === 'rgb(230, 0, 38)' && stroke === 'rgb(0, 87, 184)' &&
+        opacity === '0.75' && strokeWidth === '3px' && absolute && external,
+      detail: JSON.stringify({ fill, stroke, opacity, strokeWidth, absolute, external }),
+    }
+  }, sequence))
+
+  results.push(await page.evaluate(async () => {
+    const code = [
+      '---', 'config:', '  themeCSS: |', '    #a\\.1 { fill: #e60026 !important; }', '---',
+      'gantt', '  dateFormat YYYY-MM-DD', '  样式测试 :a.1, 2026-11-25, 1d',
+    ].join('\n')
+    const { svg } = await globalThis.__vsidianCodexMermaid.render('gantt-custom-theme', code, false)
+    const graph = document.createElement('div')
+    graph.innerHTML = svg
+    document.body.append(graph)
+    const fill = getComputedStyle(graph.querySelector('rect.task')).fill
+    return { name: '甘特图保留带标点 ID 的显式样式', ok: fill === 'rgb(230, 0, 38)', detail: fill }
+  }))
 
   for (const r of results) {
     if (!r.ok) failures += 1

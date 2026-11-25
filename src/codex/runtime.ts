@@ -34,6 +34,97 @@ export interface CodexMermaidApi {
   render(id: string, code: string, dark: boolean): Promise<{ svg: string }>
 }
 
+const CSS_STRING = String.raw`"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'`
+const CSS_IDENTIFIER = String.raw`(?:[\w\u0080-\uffff-]|\\(?:[\da-fA-F]{1,6}(?:\r\n|[ \t\r\n\f])?|[^\r\n\f]))+`
+const CSS_RULE_HEAD = new RegExp(String.raw`(?:^|[{}])(?:${CSS_STRING}|[^'"{}])*(?=\{)`, 'g')
+const CSS_SELECTOR_REF = new RegExp(
+  String.raw`#(${CSS_IDENTIFIER})|(\[(?:${CSS_STRING}|\\[\s\S]|[^'"\\\]])*\])|${CSS_STRING}`, 'g',
+)
+const CSS_ATTRIBUTE_NAME = new RegExp(String.raw`^(\[\s*)(${CSS_IDENTIFIER})`)
+const CSS_URL = new RegExp(String.raw`url\(\s*(${CSS_STRING}|(?:\\[\s\S]|[^'")\\])*)\s*\)|${CSS_STRING}`, 'gi')
+const SVG_REFERENCE_ATTRS = new Set([
+  'id', 'href', 'xlink:href', 'aria-labelledby', 'aria-describedby',
+  'marker', 'marker-start', 'marker-mid', 'marker-end', 'clip-path', 'fill', 'filter', 'mask', 'stroke', 'style',
+])
+const originalAttr = (name: string) => `data-vscx-original-${name.replace(':', '-')}`
+
+function unescapeCss(value: string): string {
+  return value.replace(/\\(?:([\da-f]{1,6})(?:\r\n|[ \t\r\n\f])?|([^\r\n\f]))/gi,
+    (_match, hex: string | undefined, char: string) => {
+      if (hex === undefined) return char
+      const point = Number.parseInt(hex, 16)
+      return point === 0 || point > 0x10ffff || (point >= 0xd800 && point <= 0xdfff)
+        ? '\ufffd' : String.fromCodePoint(point)
+    })
+}
+
+/** Mermaid 的 arrowhead 等 ID 会跨图重复；根 SVG 已使用调用方的渲染 ID。 */
+function scopeSvgIds(svg: string, renderId: string): string {
+  const template = document.createElement('template')
+  template.innerHTML = svg
+  const root = template.content.querySelector('svg')
+  if (!root) return svg
+
+  const ids = new Map<string, string>()
+  for (const { id } of root.querySelectorAll('[id]')) {
+    if (id && id !== renderId && !ids.has(id)) ids.set(id, `${renderId}-ref-${ids.size}`)
+  }
+  if (ids.size === 0) return svg
+
+  const scopeId = (id: string) => ids.get(id) ?? id
+  const mirrorAttrs = new Set<string>()
+  const scopeSelectors = (selector: string) => selector.replace(CSS_SELECTOR_REF,
+    (match, hashId: string | undefined, attr: string | undefined) => {
+      if (hashId !== undefined) {
+        const id = ids.get(unescapeCss(hashId))
+        return id === undefined ? match : `#${id}`
+      }
+      if (attr === undefined) return match
+      return attr.replace(CSS_ATTRIBUTE_NAME, (head, prefix: string, rawName: string) => {
+        const name = unescapeCss(rawName)
+        if (!SVG_REFERENCE_ATTRS.has(name)) return head
+        // 保留属性选择器的比较操作和原值（如 [id^=...] 或 [marker-end=...]）。
+        mirrorAttrs.add(name)
+        return prefix + originalAttr(name)
+      })
+    })
+
+  const pageUrl = window.location.href.split('#', 1)[0]
+  const link = document.createElement('a')
+  const scopeUrls = (value: string) => value.replace(CSS_URL, (match, arg: string | undefined) => {
+    if (arg === undefined) return match // CSS 字符串不是 url() 引用
+    const reference = arg.trim().replace(/^(['"])([\s\S]*)\1$/, '$2')
+    const hash = reference.lastIndexOf('#')
+    if (hash < 0) return match
+    const id = ids.get(unescapeCss(reference.slice(hash + 1)))
+    if (id === undefined) return match
+    const address = reference.slice(0, hash)
+    // arrowMarkerAbsolute 也会指向本页；外部 SVG 同名的片段不属于本图。
+    if (address) {
+      link.href = unescapeCss(address)
+      if (link.href !== pageUrl) return match
+    }
+    return match.replace(reference, () => `${address}#${id}`)
+  })
+
+  for (const style of root.querySelectorAll('style')) {
+    style.textContent = scopeUrls(style.textContent!.replace(CSS_RULE_HEAD, scopeSelectors))
+  }
+  for (const el of [root, ...root.querySelectorAll('*')]) {
+    for (const attr of [...el.attributes]) {
+      const { name, value } = attr
+      if (!SVG_REFERENCE_ATTRS.has(name)) continue
+      if (mirrorAttrs.has(name)) el.setAttribute(originalAttr(name), value)
+      if (name === 'id') attr.value = scopeId(value)
+      else if (name === 'href' || name === 'xlink:href') {
+        if (value.startsWith('#')) attr.value = `#${scopeId(value.slice(1))}`
+      } else if (name.startsWith('aria-')) attr.value = value.replace(/\S+/g, scopeId)
+      else attr.value = scopeUrls(value)
+    }
+  }
+  return template.innerHTML
+}
+
 /** 包装真实 mermaid：站点配置基线 + 逐图叠加 Codex 预设 */
 export function createCodexMermaidApi(mermaid: CodexMermaidLike): CodexMermaidApi {
   let baseConfig: Record<string, unknown> = {}
@@ -76,7 +167,8 @@ export function createCodexMermaidApi(mermaid: CodexMermaidLike): CodexMermaidAp
         if (config) {
           mermaid.initialize({ ...baseConfig, ...config, suppressErrorRendering: true })
         }
-        return mermaid.render(id, code)
+        const { svg } = await mermaid.render(id, code)
+        return { svg: scopeSvgIds(svg, id) }
       })
     },
   }
