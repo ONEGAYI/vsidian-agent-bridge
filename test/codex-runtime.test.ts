@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Codex 运行时包装契约（票 #3）：createCodexMermaidApi 包装真实 mermaid
 // （包装体打进独立 esm 产物，本测试注入 mock 验证协议）：
 // - 图内显式配置优先：源码逐字节透传给 mermaid.render——frontmatter

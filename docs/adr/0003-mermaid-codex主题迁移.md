@@ -22,7 +22,7 @@
 2. **图内显式配置优先**：实现位置在运行时包装（`src/codex/runtime.ts`，形态迁移自内核 mermaidEntry）——每张图先恢复站点配置基线，再按 `detectType` 结果叠加 Codex 预设；**源码逐字节透传给 `mermaid.render`**，frontmatter（init 配置）、classDef、style 由 mermaid 自身解析并覆盖站点配置（上游「预设不改写源码」口径）。差异：明暗由调用方显式传入（页面持有 `themeEnvironment` 事实），不像上游从 `baseConfig.theme` 推断。**配置与渲染共享串行队列**（PR #5 审查 P1 修复，形态对齐内核 mermaidRender 的外层 renderQueue）：mermaid 站点配置是全局单例、render 在内部异步阶段消费它——initialize 与 render 若各自立即执行，并发多图时后图的叠加配置会覆盖前图尚未消费的配置（正确性回归，非仅性能问题；真实 mermaid 回归测试钉住并发多图型与并发同图型异明暗两形态）。mount、主题重绘与 exportSvg 全部路径共用包装 API，均被队列覆盖。
 3. **导出背景与快照**：Codex 预设的 `themeCSS` 首行 `& { background-color:... }` 把画布底色烘焙进 SVG 内嵌 style——`exportSvg` 返回的 SVG 自带背景，弹窗快照与 SVG/PNG 导出走平台既有链路（PNG 由平台从 SVG 光栅化，`exportFormats: ['svg']` 声明即可）。浏览器冒烟直接断言暗 #181818 / 亮 #ffffff 在 SVG 内嵌 style 中。
 
-   实时预览和阅读模式的 SVG 可以同时留在同一页面。Mermaid 的箭头等内部 ID 会跨图重复，浏览器可能引用到隐藏图的定义。运行时在返回 SVG 前，为每张图的内部 ID 和本图引用加独立前缀，同时保持图内 ID 选择器生效、外部 SVG 地址原样不变；正文渲染和导出共用这一步。
+   实时预览和阅读模式的 SVG 可以同时留在同一页面。为避免浏览器引用到隐藏图的同名定义，运行时通过浏览器解析 SVG，为内部 ID 和本图引用加独立前缀。图内 ID 选择器随 ID 更新；图内属性选择器继续匹配改名前的属性值，外部 SVG 地址不变。正文渲染和导出共用这一步。
 4. **明暗联动**：`sdk.themeEnvironment.onChange`（VSCode 实际生效主题四态两轴投影）直连 `renderer.onThemeChange`——重渲染全部已挂载容器（等值跳过、脱离文档顺带清理）；图表弹窗沿平台既有快照/刷新语义，不经组件。
 5. **平台口径落位**：安装只增候选不自动切换（themes.register 目录登记，选择归用户单选）；组件主题身份 `ONEGAYI.vsidian-codex-bridge/codex`（组合形态，不占用内置保留值 `codex`）；显示名 `Codex` 对齐内核 i18n 文案；停用回落内置 default 且保留首选（平台语义，组件侧靠私有全局名与自处理降级保证不拖累宿主）。
 6. **降级口径**：装载失败 / 渲染失败是**自处理降级**（错误信息 + 源码占位，不向平台抛——渲染 bug 不伪造组件故障停用，对齐平台 ADR-0012 Q30）；迟到结果不回插（容器已 release / 脱离文档时在途结果丢弃）。

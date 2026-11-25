@@ -57,7 +57,7 @@ let failures = 0
 const browser = await chromium.launch()
 try {
   const page = await browser.newPage()
-  await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'commit' }).catch(() => {})
+  await page.goto(`http://127.0.0.1:${port}/?id=42&platform=electron`, { waitUntil: 'commit' }).catch(() => {})
 
   const results = await page.evaluate(async ({ port, samples }) => {
     const out = []
@@ -146,6 +146,8 @@ try {
       '---', 'config:', '  arrowMarkerAbsolute: true', '  themeCSS: |',
       '    marker[id="arrowhead"] path { fill: #e60026 !important; }',
       '    #\\61 rrowhead path { stroke: #0057b8 !important; }',
+      '    marker[id^="arrow"] path { opacity: 0.75 !important; }',
+      '    line[marker-end$="#arrowhead)"] { stroke-width: 3px !important; }',
       '    .unused-edge { marker-end: url("https://example.invalid/f.svg#arrowhead"); }',
       '---', sequence,
     ].join('\n')
@@ -153,16 +155,19 @@ try {
     const graph = document.createElement('div')
     graph.innerHTML = svg
     document.body.append(graph)
-    const ref = graph.querySelector('.messageLine0').getAttribute('marker-end')
+    const line = graph.querySelector('.messageLine0')
+    const ref = line.getAttribute('marker-end')
     const marker = document.getElementById(ref.slice(ref.lastIndexOf('#') + 1, -1))
-    const fill = marker && getComputedStyle(marker.firstElementChild).fill
-    const stroke = marker && getComputedStyle(marker.firstElementChild).stroke
-    const absolute = ref.lastIndexOf('#') > 'url('.length
+    const style = marker && getComputedStyle(marker.firstElementChild)
+    const { fill, stroke, opacity } = style ?? {}
+    const strokeWidth = getComputedStyle(line).strokeWidth
+    const absolute = ref.includes('platform') && ref.lastIndexOf('#') > 'url('.length
     const external = graph.querySelector('style').textContent.includes('https://example.invalid/f.svg#arrowhead')
     return {
-      name: '时序图保留自定义 ID 选择器、同文档绝对箭头地址和外部链接',
-      ok: fill === 'rgb(230, 0, 38)' && stroke === 'rgb(0, 87, 184)' && absolute && external,
-      detail: JSON.stringify({ fill, stroke, absolute, external }),
+      name: '时序图保留自定义选择器、带查询串的同文档绝对箭头地址和外部链接',
+      ok: fill === 'rgb(230, 0, 38)' && stroke === 'rgb(0, 87, 184)' &&
+        opacity === '0.75' && strokeWidth === '3px' && absolute && external,
+      detail: JSON.stringify({ fill, stroke, opacity, strokeWidth, absolute, external }),
     }
   }, sequence))
 
