@@ -45,7 +45,7 @@ vsidian-agent-bridge/
 │   └── codex/                 # Mermaid Codex 主题实现（票 #3，架构见 docs/adr/0003）
 │       ├── meta.ts            # 元数据单一事实源（ADDON_ID / rendererId / 主题声明）
 │       ├── theme.ts           # buildCodexMermaidConfig——内核 mermaidTheme.ts 逐值迁移（勿凭记忆改值）
-│       ├── runtime.ts         # mermaid 运行时包装（配置序列 + 源码透传）
+│       ├── runtime.ts         # Mermaid 运行时包装（配置串行、源码透传和 SVG ID 隔离）
 │       ├── loader.ts          # 独立产物装载器（resourceUri + module script 单例）
 │       ├── renderer.ts        # 渲染提供者（mount/refresh/release/exportSvg + 明暗联动）
 │       ├── host-enable.ts     # 宿主页面入口与主题候选登记
@@ -61,7 +61,7 @@ vsidian-agent-bridge/
 │   ├── fixtures/
 │   │   └── addon-sdk-shim.mjs # vsidian-addon-sdk 测试侧 shim（vitest alias 指向）
 │   ├── browser/
-│   │   └── smoke-mermaid.mjs  # 浏览器层冒烟（真 Chromium 装载 dist 产物渲染七类图型）
+│   │   └── smoke-mermaid.mjs  # Chromium 验证七类图型及多实例时序图的箭头绘制
 │   └── host/                  # 宿主层静默验证基建（票 #4 常驻，与单元/浏览器层并列；机制见 docs/adr/0004）
 │       ├── hiddenDesktop.ps1  # 静默通道：独立窗口站+桌面（上游 vsidian@301d2c16 原样复制 + 来源头注）
 │       ├── silentHost.mjs     # 启动包装（上游 testHost.mjs 适配：报告落盘/超时收尾/PowerShell 包装）

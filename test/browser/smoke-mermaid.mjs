@@ -107,6 +107,38 @@ try {
     return out
   }, { port, samples: SAMPLES })
 
+  // Vsidian 切到阅读模式时，实时预览的 SVG 仍在文档中，只是隐藏。
+  const sequence = SAMPLES.find(([name]) => name === 'sequence')[1] +
+    '\n  Note over U,S: 保留文字 #35;arrowhead'
+  await page.evaluate(async (code) => {
+    const api = globalThis.__vsidianCodexMermaid
+    const live = document.createElement('div')
+    const reading = document.createElement('div')
+    live.innerHTML = (await api.render('sequence-live', code, true)).svg
+    reading.innerHTML = (await api.render('sequence-reading', code, false)).svg
+    live.hidden = true
+    reading.id = 'sequence-reading-probe'
+    document.body.append(live, reading)
+  }, sequence)
+  const reading = page.locator('#sequence-reading-probe svg')
+  const { styledArrows, notePreserved } = await reading.evaluate((svg) => {
+    const lines = [...svg.querySelectorAll('[marker-end]')]
+    const styledArrows = lines.filter((line) => {
+      const target = document.getElementById(line.getAttribute('marker-end').slice(5, -1))
+      return target?.ownerSVGElement === svg &&
+        getComputedStyle(target.firstElementChild).fill === getComputedStyle(line).stroke
+    }).length
+    return { styledArrows, notePreserved: svg.textContent.includes('保留文字 #arrowhead') }
+  })
+  const withArrows = await reading.screenshot()
+  await reading.locator('[marker-end]').evaluateAll((lines) => lines.forEach((line) => line.removeAttribute('marker-end')))
+  const arrowheadsPainted = !withArrows.equals(await reading.screenshot())
+  results.push({
+    name: '隐藏实时预览后，阅读时序图的请求与响应箭头仍按主题色绘制',
+    ok: styledArrows === 2 && arrowheadsPainted && notePreserved,
+    detail: `本图同色箭头 ${styledArrows}/2；箭头像素 ${arrowheadsPainted}；图中文字保留 ${notePreserved}`,
+  })
+
   for (const r of results) {
     if (!r.ok) failures += 1
     console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? `（${r.detail}）` : ''}`)

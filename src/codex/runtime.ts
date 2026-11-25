@@ -34,6 +34,39 @@ export interface CodexMermaidApi {
   render(id: string, code: string, dark: boolean): Promise<{ svg: string }>
 }
 
+/** Mermaid 的 arrowhead 等 ID 会跨图重复；根 SVG 已使用调用方的渲染 ID。 */
+function scopeSvgIds(svg: string, renderId: string): string {
+  const markup = /<style>[\s\S]*?<\/style>|<[A-Za-z](?:[^">]|"[^"]*")*>/g
+  const ids = new Map<string, string>()
+  for (const [part] of svg.matchAll(markup)) {
+    if (part.startsWith('<style>')) continue
+    const id = part.match(/\sid="([^"]+)"/)?.[1]
+    if (id !== undefined && id !== renderId && !ids.has(id)) {
+      ids.set(id, `${renderId}-ref-${ids.size}`)
+    }
+  }
+  const scopeId = (id: string) => ids.get(id) ?? id
+  const scopeFragments = (value: string) =>
+    value.replace(/#([\w\u0080-\uffff-]+)/g, (_match, id: string) => `#${scopeId(id)}`)
+  return svg.replace(markup, (part) => {
+    // 只改样式选择器和 url 引用，保留颜色值与图中文字。
+    if (part.startsWith('<style>')) {
+      return part.replace(/(?:^|[{}])[^{}]*(?=\{)|url\([^)]*\)/g, scopeFragments)
+    }
+    return part.replace(
+      /(\s)(id|href|xlink:href|aria-labelledby|aria-describedby|marker(?:-start|-mid|-end)?|clip-path|fill|filter|mask|stroke|style)="([^"]*)"/g,
+      (_attr, space: string, name: string, value: string) => {
+        if (name === 'id') value = scopeId(value)
+        else if (name === 'href' || name === 'xlink:href') {
+          if (value.startsWith('#')) value = scopeFragments(value)
+        } else if (name.startsWith('aria-')) value = value.replace(/\S+/g, scopeId)
+        else value = value.replace(/url\([^)]*\)/g, scopeFragments)
+        return `${space}${name}="${value}"`
+      },
+    )
+  })
+}
+
 /** 包装真实 mermaid：站点配置基线 + 逐图叠加 Codex 预设 */
 export function createCodexMermaidApi(mermaid: CodexMermaidLike): CodexMermaidApi {
   let baseConfig: Record<string, unknown> = {}
@@ -76,7 +109,8 @@ export function createCodexMermaidApi(mermaid: CodexMermaidLike): CodexMermaidAp
         if (config) {
           mermaid.initialize({ ...baseConfig, ...config, suppressErrorRendering: true })
         }
-        return mermaid.render(id, code)
+        const { svg } = await mermaid.render(id, code)
+        return { svg: scopeSvgIds(svg, id) }
       })
     },
   }
