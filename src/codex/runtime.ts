@@ -34,6 +34,24 @@ export interface CodexMermaidApi {
   render(id: string, code: string, dark: boolean): Promise<{ svg: string }>
 }
 
+const CSS_STRING = String.raw`"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'`
+const CSS_IDENTIFIER = String.raw`(?:[\w\u0080-\uffff-]|\\(?:[\da-fA-F]{1,6}(?:\r\n|[ \t\r\n\f])?|[^\r\n\f]))+`
+const CSS_RULE_HEAD = new RegExp(String.raw`(?:^|[{}])(?:${CSS_STRING}|[^'"{}])*(?=\{)`, 'g')
+const CSS_ID_SELECTOR = new RegExp(
+  String.raw`(\[\s*id\s*=\s*)(${CSS_STRING}|${CSS_IDENTIFIER})|#(${CSS_IDENTIFIER})|${CSS_STRING}`, 'g',
+)
+const CSS_URL = new RegExp(String.raw`url\(\s*(${CSS_STRING}|(?:\\[\s\S]|[^'")\\])*)\s*\)|${CSS_STRING}`, 'gi')
+
+function unescapeCss(value: string): string {
+  return value.replace(/\\(?:([\da-f]{1,6})(?:\r\n|[ \t\r\n\f])?|([^\r\n\f]))/gi,
+    (_match, hex: string | undefined, char: string) => {
+      if (hex === undefined) return char
+      const point = Number.parseInt(hex, 16)
+      return point === 0 || point > 0x10ffff || (point >= 0xd800 && point <= 0xdfff)
+        ? '\ufffd' : String.fromCodePoint(point)
+    })
+}
+
 /** Mermaid 的 arrowhead 等 ID 会跨图重复；根 SVG 已使用调用方的渲染 ID。 */
 function scopeSvgIds(svg: string, renderId: string): string {
   const markup = /<style>[\s\S]*?<\/style>|<[A-Za-z](?:[^">]|"[^"]*")*>/g
@@ -46,21 +64,41 @@ function scopeSvgIds(svg: string, renderId: string): string {
     }
   }
   const scopeId = (id: string) => ids.get(id) ?? id
-  const scopeFragments = (value: string) =>
-    value.replace(/#([\w\u0080-\uffff-]+)/g, (_match, id: string) => `#${scopeId(id)}`)
+  const scopeSelectors = (selector: string) => selector.replace(CSS_ID_SELECTOR,
+    (match, prefix: string, attrValue: string | undefined, hashId: string | undefined) => {
+      if (hashId !== undefined) {
+        const id = ids.get(unescapeCss(hashId))
+        return id === undefined ? match : `#${id}`
+      }
+      if (attrValue === undefined) return match // 其他选择器的字符串值原样保留
+      const quote = /^['"]/.test(attrValue) ? attrValue[0] : ''
+      const id = ids.get(unescapeCss(quote ? attrValue.slice(1, -1) : attrValue))
+      return id === undefined ? match : `${prefix}${quote}${id}${quote}`
+    })
+  const scopeUrls = (value: string) => value.replace(CSS_URL, (match, arg: string | undefined) => {
+    if (arg === undefined) return match // CSS 字符串不是 url() 引用
+    const reference = arg.trim().replace(/^(['"]|&quot;)([\s\S]*)\1$/, '$2')
+    const hash = reference.lastIndexOf('#')
+    if (hash < 0) return match
+    const id = ids.get(unescapeCss(reference.slice(hash + 1)))
+    const address = reference.slice(0, hash)
+    // arrowMarkerAbsolute 也会指向本页；外部 SVG 同名的片段不属于本图。
+    if (id === undefined || (address && unescapeCss(address) !== window.location.href.split('#', 1)[0])) return match
+    return match.replace(reference, () => `${address}#${id}`)
+  })
   return svg.replace(markup, (part) => {
     // 只改样式选择器和 url 引用，保留颜色值与图中文字。
     if (part.startsWith('<style>')) {
-      return part.replace(/(?:^|[{}])[^{}]*(?=\{)|url\([^)]*\)/g, scopeFragments)
+      return scopeUrls(part.replace(CSS_RULE_HEAD, scopeSelectors))
     }
     return part.replace(
       /(\s)(id|href|xlink:href|aria-labelledby|aria-describedby|marker(?:-start|-mid|-end)?|clip-path|fill|filter|mask|stroke|style)="([^"]*)"/g,
       (_attr, space: string, name: string, value: string) => {
         if (name === 'id') value = scopeId(value)
         else if (name === 'href' || name === 'xlink:href') {
-          if (value.startsWith('#')) value = scopeFragments(value)
+          if (value.startsWith('#')) value = `#${scopeId(value.slice(1))}`
         } else if (name.startsWith('aria-')) value = value.replace(/\S+/g, scopeId)
-        else value = value.replace(/url\([^)]*\)/g, scopeFragments)
+        else value = scopeUrls(value)
         return `${space}${name}="${value}"`
       },
     )

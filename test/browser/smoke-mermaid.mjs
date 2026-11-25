@@ -139,6 +139,46 @@ try {
     detail: `本图同色箭头 ${styledArrows}/2；箭头像素 ${arrowheadsPainted}；图中文字保留 ${notePreserved}`,
   })
 
+  results.push(await page.evaluate(async (sequence) => {
+    document.body.replaceChildren()
+    const api = globalThis.__vsidianCodexMermaid
+    const customTheme = [
+      '---', 'config:', '  arrowMarkerAbsolute: true', '  themeCSS: |',
+      '    marker[id="arrowhead"] path { fill: #e60026 !important; }',
+      '    #\\61 rrowhead path { stroke: #0057b8 !important; }',
+      '    .unused-edge { marker-end: url("https://example.invalid/f.svg#arrowhead"); }',
+      '---', sequence,
+    ].join('\n')
+    const { svg } = await api.render('sequence-custom-theme', customTheme, false)
+    const graph = document.createElement('div')
+    graph.innerHTML = svg
+    document.body.append(graph)
+    const ref = graph.querySelector('.messageLine0').getAttribute('marker-end')
+    const marker = document.getElementById(ref.slice(ref.lastIndexOf('#') + 1, -1))
+    const fill = marker && getComputedStyle(marker.firstElementChild).fill
+    const stroke = marker && getComputedStyle(marker.firstElementChild).stroke
+    const absolute = ref.lastIndexOf('#') > 'url('.length
+    const external = graph.querySelector('style').textContent.includes('https://example.invalid/f.svg#arrowhead')
+    return {
+      name: '时序图保留自定义 ID 选择器、同文档绝对箭头地址和外部链接',
+      ok: fill === 'rgb(230, 0, 38)' && stroke === 'rgb(0, 87, 184)' && absolute && external,
+      detail: JSON.stringify({ fill, stroke, absolute, external }),
+    }
+  }, sequence))
+
+  results.push(await page.evaluate(async () => {
+    const code = [
+      '---', 'config:', '  themeCSS: |', '    #a\\.1 { fill: #e60026 !important; }', '---',
+      'gantt', '  dateFormat YYYY-MM-DD', '  样式测试 :a.1, 2026-11-25, 1d',
+    ].join('\n')
+    const { svg } = await globalThis.__vsidianCodexMermaid.render('gantt-custom-theme', code, false)
+    const graph = document.createElement('div')
+    graph.innerHTML = svg
+    document.body.append(graph)
+    const fill = getComputedStyle(graph.querySelector('rect.task')).fill
+    return { name: '甘特图保留带标点 ID 的显式样式', ok: fill === 'rgb(230, 0, 38)', detail: fill }
+  }))
+
   for (const r of results) {
     if (!r.ok) failures += 1
     console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? `（${r.detail}）` : ''}`)
