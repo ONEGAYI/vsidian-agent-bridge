@@ -4,9 +4,13 @@
 
 ## Unreleased - 开发中
 
+## [0.3.1] - 2026-11-25
+
+Codex 主题的 Mermaid 时序图切换到阅读模式后，仍会显示请求和回复的箭头。无需修改已有笔记。
+
 ### 修复
 
-- 修复 Codex 主题的 Mermaid 时序图从实时预览切到阅读模式后箭头消失的问题。
+- 同一页面有多张图时，时序图的箭头只引用本图的定义，图内自定义样式仍会生效（[PR #12](https://github.com/ONEGAYI/vsidian-agent-bridge/pull/12)）。
 
 ## [0.3.0] - 2026-11-23
 
@@ -99,6 +103,7 @@ Vsidian Codex Bridge 更名为 Vsidian Agent Bridge。新版可在粘贴时还�
 - Marketplace 图标未设置：本仓暂无图标资产，Marketplace 页面使用默认占位（决策见 ADR-0004）。
 
 <!-- 变更链接
+0.3.1: https://github.com/ONEGAYI/vsidian-agent-bridge/compare/v0.3.0...v0.3.1
 0.2.0: https://github.com/ONEGAYI/vsidian-agent-bridge/compare/v0.1.2...v0.2.0
 0.3.0: https://github.com/ONEGAYI/vsidian-agent-bridge/compare/v0.2.0...v0.3.0
 0.1.1: https://github.com/ONEGAYI/vsidian-codex-bridge/compare/v0.1.0...v0.1.1
